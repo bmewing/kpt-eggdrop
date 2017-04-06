@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Host: localhost
--- Generation Time: Apr 06, 2017 at 02:23 AM
+-- Generation Time: Apr 06, 2017 at 11:45 PM
 -- Server version: 5.7.17-0ubuntu0.16.04.1
 -- PHP Version: 7.0.15-0ubuntu0.16.04.4
 
@@ -51,6 +51,7 @@ INSERT INTO `categories` (`cid`, `label`) VALUES
 --
 
 CREATE TABLE `drops` (
+  `did` int(11) NOT NULL,
   `uid` int(11) NOT NULL,
   `round` int(11) NOT NULL,
   `dweight` float NOT NULL,
@@ -60,15 +61,6 @@ CREATE TABLE `drops` (
   `cracked` int(11) NOT NULL,
   `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-
---
--- Dumping data for table `drops`
---
-
-INSERT INTO `drops` (`uid`, `round`, `dweight`, `eweight`, `nparts`, `zone`, `cracked`, `time`) VALUES
-(10, 1, 25, 12, NULL, 10, 1, '2017-04-06 01:12:21'),
-(10, 2, 100, 25, 6, 3, 1, '2017-04-06 01:12:21'),
-(27, 1, 145, 105, NULL, 5, 1, '2017-04-06 01:13:04');
 
 -- --------------------------------------------------------
 
@@ -80,13 +72,6 @@ CREATE TABLE `logins` (
   `username` varchar(100) NOT NULL,
   `pwd` varchar(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-
---
--- Dumping data for table `logins`
---
-
-INSERT INTO `logins` (`username`, `pwd`) VALUES
-('dataentry', '$2y$12$MuezsHvu1m9dQY/5OPP5VOY4varSzasJ/I0mRZBPkcRmfeipNUOgK');
 
 -- --------------------------------------------------------
 
@@ -172,11 +157,17 @@ CREATE TABLE `stage` (
 --
 
 INSERT INTO `stage` (`id`, `stage`) VALUES
-(1, 1);
+(1, 0);
 
 --
 -- Indexes for dumped tables
 --
+
+--
+-- Indexes for table `drops`
+--
+ALTER TABLE `drops`
+  ADD PRIMARY KEY (`did`);
 
 --
 -- Indexes for table `people`
@@ -188,6 +179,11 @@ ALTER TABLE `people`
 -- AUTO_INCREMENT for dumped tables
 --
 
+--
+-- AUTO_INCREMENT for table `drops`
+--
+ALTER TABLE `drops`
+  MODIFY `did` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 --
 -- AUTO_INCREMENT for table `people`
 --
