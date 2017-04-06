@@ -1,5 +1,6 @@
 library(shiny)
 library(lubridate)
+library(ggplot2)
 library(dplyr)
 library(magrittr)
 

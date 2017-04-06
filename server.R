@@ -1,4 +1,7 @@
 shinyServer(function(input, output, session) {
+  session$onSessionEnded(function() {
+    dbDisconnect(con)
+  })
   
   currentStage = reactivePoll(20000,session,
                               function(){
@@ -89,13 +92,39 @@ shinyServer(function(input, output, session) {
     rd %<>%
       filter(cracked == 1) %>% 
       group_by(Category,catSort) %>% 
+      mutate(n = n()) %>% 
       top_n(3,Score) %>% 
-      summarise(Threshold = as.character(round(max(Score),2))) %>% 
+      summarise(Threshold = as.character(round(max(Score),2)), n = mean(n)) %>% 
       arrange(catSort) %>% 
       select(-catSort)
     data_frame(Category = c('Team','Elementary School','Middle School','High School','Adult')) %>% 
       left_join(rd,by="Category") %>% 
-      mutate(Threshold = ifelse(is.na(Threshold),"Anybody's Game!",Threshold))
+      mutate(Threshold = ifelse(is.na(Threshold) | n < 3,"Anybody's Game!",Threshold)) %>% 
+      select(-n)
   },rownames=F,options=list(searching=F,paging=F))
+  
+  output$broken = renderPlot({
+    rd = recentDrops() %>% 
+      group_by(Category) %>% 
+      summarise(percBroken = 1-mean(cracked))
+    cats = data_frame(Category = c('Team','Elementary School','Middle School','High School','Adult')) %>% 
+      left_join(rd,by="Category") %>% 
+      mutate(Category = factor(Category,levels=c('Team','Elementary School','Middle School','High School','Adult'))) %>% 
+      mutate(percBroken = ifelse(is.na(percBroken),0,percBroken))
+    ggplot(cats,aes(x=Category,y=percBroken)) + 
+      geom_col() +
+      scale_y_continuous(labels = scales::percent, name = "Percent of Eggs Broken",breaks=seq(0,1,.2),limits=c(0,1))
+  })
+  
+  output$dropmap = renderPlot({
+    rd = recentDrops()
+    zones = data_frame(zone = 1:12)
+    pd = rd %>% 
+      group_by(zone) %>% 
+      summarise(n=n()/nrow(.))
+    zones %<>%
+      left_join(pd,by="zone") %>% 
+      mutate(n = ifelse(is.na(n),0,n))
+  })
   
 })
