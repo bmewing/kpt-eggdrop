@@ -14,13 +14,22 @@ if($_SESSION["li"] == "good2go"){
 		$cracked = $_POST["broken"];
 		$npart = $_POST["npart"];
 
-		$sql = "INSERT INTO eggdrop.drops (uid, round, dweight, eweight, zone, cracked, nparts) VALUES (".$uid.",".$round.",".$dweight.",".$eweight.",".$zone.",".$cracked.",".$npart.")";
+		$g2g = 1;
 
-		if ($conn->query($sql) === TRUE) {
-			$err = "<p class='text-success'>Drop added!</p>";
+		if($eweight > $dweight or $zone > 12){$g2g = 0;}
+
+		if($g2g == 1){
+
+			$sql = "INSERT INTO eggdrop.drops (uid, round, dweight, eweight, zone, cracked, nparts) VALUES (".$uid.",".$round.",".$dweight.",".$eweight.",".$zone.",".$cracked.",".$npart.")";
+
+			if ($conn->query($sql) === TRUE) {
+				$err = "<p class='text-success'>Drop added!</p>";
+			} else {
+				echo "Error: " . $sql . "<br>" . $conn->error;
+				$err = "<p class='text-danger'>Failed to add drop</p>";
+			}
 		} else {
-			echo "Error: " . $sql . "<br>" . $conn->error;
-			$err = "<p class='text-danger'>Failed to add drop</p>";
+			$err = "<p class='text-danger'>Invalid data entered.</p>";
 		}
 	}
 } else {
@@ -84,7 +93,7 @@ if($_SESSION["li"] == "good2go"){
 						</select>
 					</div>
 					<div class="form-group">
-						<label for="dweight">Device Weight:</label>
+						<label for="dweight">Total Weight:</label>
 						<input type="number" class="form-control" id="dweight" name = "dweight">
 					</div>
 					<div class="form-group">
