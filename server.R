@@ -1,3 +1,5 @@
+source('dbconnect.R')
+
 shinyServer(function(input, output, session) {
   session$onSessionEnded(function() {
     dbDisconnect(con)
@@ -23,7 +25,7 @@ shinyServer(function(input, output, session) {
         div(h1('Registration is Upstairs'),align='center',class='text-danger'),
         div(h2('No one down here can register you!'),align='center'),
         hr(),
-        div(h1('Event begins at 10:30am'),align='center',class='text-success')
+        div(h1('Registration opens at 12 noon'),align='center',class='text-success')
       )
     } else if(currentStage() == 1){
       column(12,
@@ -40,7 +42,7 @@ shinyServer(function(input, output, session) {
                     DT::dataTableOutput('score2beat'),
                     hr(),
                     div(
-                      h2("Where have the eggs been landing?"),
+                      h2("Where have the eggs been landed?"),
                       plotOutput('dropmap'),
                       align='center'
                     )
@@ -63,7 +65,7 @@ shinyServer(function(input, output, session) {
              ),
              column(4,
                     div(
-                      h2("Where have the eggs been landing?"),
+                      h2("Where have the eggs landed?"),
                       plotOutput('finalMap'),
                       align='center'
                     )
@@ -139,12 +141,12 @@ shinyServer(function(input, output, session) {
     ggplot(cats,aes(x=Category,y=percBroken)) + 
       geom_col() +
       scale_y_continuous(labels = scales::percent, name = "Percent of Eggs Broken",breaks=seq(0,1,.2),limits=c(0,1))
-  })
+  },height=200)
   
   output$dropmap = renderPlot({
     rd = recentDrops()
-    zones = data_frame(zone = 1:12)
-    pd = rd %>% 
+    zones <<- data_frame(zone = 1:12)
+    pd <<- rd %>% 
       group_by(zone) %>% 
       summarise(n=n()/nrow(.)) %>% 
       ungroup()
@@ -152,7 +154,9 @@ shinyServer(function(input, output, session) {
       left_join(pd,by="zone") %>% 
       mutate(n = ifelse(is.na(n),0,n)) %>% 
       mutate(n = n/sum(n)) %>% 
+      arrange(desc(zone)) %>% 
       mutate(x0 = 0,y0 = 0,r=12:1)
+    ztmp <<- zones
     ggplot() +
       theme(axis.title = element_blank(),
             axis.ticks = element_blank(),
@@ -162,7 +166,7 @@ shinyServer(function(input, output, session) {
             legend.key = element_blank()) +
       geom_circle(aes(x0=x0,y0=y0,r=r,fill=n),data=zones,color='grey') + 
       scale_fill_gradient(low = "#FFFFFF",high="#FF4500",guide=FALSE)
-  },width=400)
+  },width=200,height=200)
   
   finalDrops = reactivePoll(5000,session,
                              function(){

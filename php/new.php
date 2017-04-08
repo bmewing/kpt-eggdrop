@@ -9,21 +9,30 @@ if($_SESSION["li"] == "good2go"){
 		$lname = $conn->real_escape_string($_POST["lname"]);
 		$tname = $conn->real_escape_string($_POST["tname"]);
 		$year = date("Y");
-		echo $fname;
+
+		$g2g = 1;
+
 		if($_POST["cat"] >= 0 and $_POST["cat"] <= 4){
 			$cat = $_POST["cat"];
 		} else {
-			die("Evil category input");
+			$g2g = 0;
 		}
+		if($fname == '' and $lname == '' and $tname == ''){$g2g = 0;}
+		if(($fname == '' and $lname != '') or ($fname != '' and $lname == '')){$g2g = 0;}
 
-		$sql = "INSERT INTO eggdrop.people (fname, lname, tname, year, cat) VALUES ('".$fname."','".$lname."','".$tname."',".$year.",".$cat.")";
+		if($g2g == 1){
+			$sql = "INSERT INTO eggdrop.people (fname, lname, tname, year, cat) VALUES ('".$fname."','".$lname."','".$tname."',".$year.",".$cat.")";
 
-		if ($conn->query($sql) === TRUE) {
-			$err = "<p class='text-success'>Record added!</p>";
+			if ($conn->query($sql) === TRUE) {
+				$err = "<p class='text-success'>Record added!</p>";
+			} else {
+				echo "Error: " . $sql . "<br>" . $conn->error;
+				$err = "<p class='text-danger'>Failed to add record</p>";
+			}
 		} else {
-			echo "Error: " . $sql . "<br>" . $conn->error;
-			$err = "<p class='text-danger'>Failed to add record</p>";
+			$err = "<p class='text-danger'>Invalid data submited, a name must be provided</p>";
 		}
+		
 	}
 } else {
 	header("Location: http://162.243.214.108/index.php");
