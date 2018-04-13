@@ -1,22 +1,14 @@
-source('dbconnect.R')
-
 shinyServer(function(input, output, session) {
-  session$onSessionEnded(function() {
-    dbDisconnect(con)
-  })
-  
   currentStage = reactivePoll(20000,session,
                               function(){
-                                rs <- dbSendQuery(con, "SELECT `stage` FROM `stage` WHERE `id` = 1;")
-                                data <- fetch(rs)
-                                dbClearResult(rs)
-                                return(data[['stage']])
+                                res = httr::GET(paste0("http://kpteggdropresults.com/api/stage/",currentyear)) %>% 
+                                  content()
+                                return(res$stage)
                               },
                               function(){
-                                rs <- dbSendQuery(con, "SELECT `stage` FROM `stage` WHERE `id` = 1;")
-                                data <- fetch(rs)
-                                dbClearResult(rs)
-                                return(data[['stage']])
+                                res = httr::GET(paste0("http://kpteggdropresults.com/api/stage/",currentyear)) %>% 
+                                  content()
+                                return(res$stage)
                               })
   
   output$generalHolder = renderUI({
@@ -82,48 +74,47 @@ shinyServer(function(input, output, session) {
   recentDrops = reactivePoll(5000,session,
                function(){
                  if(currentStage() != 1) return(0)
-                 rs <- dbSendQuery(con, "SELECT max(time) as `a` FROM `drops` where YEAR(time) = YEAR(current_date);")
-                 data <- fetch(rs)
-                 dbClearResult(rs)
-                 data[['a']]
+                 rs = httr::GET("http://kpteggdropresults.com/api/drops") %>% 
+                   content(as='text') %>% 
+                   jsonlite::fromJSON()
+                 return(rs)
                },function()
                {
                  if(currentStage() != 1) return(0)
-                 rs = dbSendQuery(con,
-                      "select (case `tname` when '' then concat(`fname`,' ',`lname`) else `tname` end) as `Name`, 
-                      `cat` as `catSort`,
-                      `label` as `Category`, 
-                      `score` as `Score`, 
-                      `zone`,
-                      `cracked` 
-                      from (select uid, cracked,`zone`, `time`, (30.0*(`dweight`-`eweight`)/89.0+40.0*`zone`/10.0) as `score` from `drops` where `round` = 1 and year(`time`) = year(CURRENT_DATE)) as `s` 
-                      left join `people` as `p` on `s`.`uid` = `p`.`uid` 
-                      left join `categories` as `c` on `p`.`cat` = `c`.`cid`
-                      order by `time` desc"
-                      )
-                 data = fetch(rs)
-                 dbClearResult(rs)
-                 return(data)
+                 rs = httr::GET("http://kpteggdropresults.com/api/drops") %>% 
+                   content(as='text') %>% 
+                   jsonlite::fromJSON()
+                 rsKeep = rs[unlist(lapply(rs$drop,nrow))>0,]
+                 output = lapply(rsKeep$drop,function(x){
+                   x %>% 
+                     filter(round == 1) %>% 
+                     select(-`_id`)
+                 }) %>% 
+                   do.call(bind_rows,.) %>% 
+                   bind_cols(rsKeep %>% select(-drop,-`_id`,-`__v`,-year)) %>% 
+                   mutate(Cracked = ifelse(is.na(cracked),FALSE,TRUE)) %>% 
+                   mutate(Category = paste(category,ifelse(category %in% c("Adult","Team"),""," School"),sep="")) %>% 
+                   arrange(desc(dt)) %>% 
+                   select(-cracked,-category,-dt)
+                 return(output)
                })
   
   output$recentDrops = DT::renderDataTable({
     rd = recentDrops()
     rd %<>% 
-      mutate(Score = ifelse(cracked == 0,base::sample(brokenEgg,nrow(.),replace=T),round(Score,1))) %>% 
-      select(-cracked,-catSort,-zone)
+      mutate(score = ifelse(Cracked,base::sample(brokenEgg,nrow(.),replace=T),round(score,1))) %>% 
+      select(-Cracked,-round,-zone,-dweight,-eweight)
     rd[1:min(nrow(rd),7),]
   },rownames=F,options=list(searching=F,paging=F))
   
   output$score2beat = DT::renderDataTable({
     rd = recentDrops()
     rd %<>%
-      filter(cracked == 1) %>% 
-      group_by(Category,catSort) %>% 
+      filter(!Cracked) %>% 
+      group_by(Category) %>% 
       mutate(n = n()) %>% 
-      top_n(3,Score) %>% 
-      summarise(Threshold = as.character(round(max(Score),2)), n = mean(n)) %>% 
-      arrange(catSort) %>% 
-      select(-catSort)
+      top_n(3,score) %>% 
+      summarise(Threshold = as.character(round(max(score),2)), n = mean(n))
     data_frame(Category = c('Team','Elementary School','Middle School','High School','Adult')) %>% 
       left_join(rd,by="Category") %>% 
       mutate(Threshold = ifelse(is.na(Threshold) | n < 3,"Anybody's Game!",Threshold)) %>% 
@@ -133,11 +124,12 @@ shinyServer(function(input, output, session) {
   output$broken = renderPlot({
     rd = recentDrops() %>% 
       group_by(Category) %>% 
-      summarise(percBroken = 1-mean(cracked))
+      summarise(percBroken = mean(Cracked))
     cats = data_frame(Category = c('Team','Elementary School','Middle School','High School','Adult')) %>% 
       left_join(rd,by="Category") %>% 
       mutate(Category = factor(Category,levels=c('Team','Elementary School','Middle School','High School','Adult'))) %>% 
       mutate(percBroken = ifelse(is.na(percBroken),0,percBroken))
+    print(cats)
     ggplot(cats,aes(x=Category,y=percBroken)) + 
       geom_col() +
       scale_y_continuous(labels = scales::percent, name = "Percent of Eggs Broken",breaks=seq(0,1,.2),limits=c(0,1))
@@ -184,8 +176,8 @@ shinyServer(function(input, output, session) {
                       `label` as `Category`, 
                       `score` as `Score`, 
                       `zone`,
-                      `cracked` 
-                      from (select uid, cracked,`zone`, `time`, (30.0*(`dweight`-`eweight`)/89.0+30.0*`nparts`+40.0*`zone`/10.0) as `score` from `drops` where `round` = 2 and year(`time`) = year(CURRENT_DATE)) as `s` 
+                      `Cracked` 
+                      from (select uid, Cracked,`zone`, `time`, (30.0*(`dweight`-`eweight`)/89.0+30.0*`nparts`+40.0*`zone`/10.0) as `score` from `drops` where `round` = 2 and year(`time`) = year(CURRENT_DATE)) as `s` 
                       left join `people` as `p` on `s`.`uid` = `p`.`uid` 
                       left join `categories` as `c` on `p`.`cat` = `c`.`cid`
                       order by `time` desc"
@@ -197,15 +189,15 @@ shinyServer(function(input, output, session) {
   output$finalDrops = DT::renderDataTable({
     rd = finalDrops()
     rd %<>% 
-      mutate(Score = ifelse(cracked == 0,base::sample(brokenEgg,nrow(.),replace=T),round(Score,1))) %>% 
-      select(-cracked,-catSort,-zone)
+      mutate(Score = ifelse(Cracked == 0,base::sample(brokenEgg,nrow(.),replace=T),round(Score,1))) %>% 
+      select(-Cracked,-catSort,-zone)
     rd[1:min(nrow(rd),5),]
   },rownames=F,options=list(searching=F,paging=F))
   
   output$finalBroken = renderPlot({
     rd = finalDrops() %>% 
       group_by(Category) %>% 
-      summarise(percBroken = 1-mean(cracked))
+      summarise(percBroken = 1-mean(Cracked))
     cats = data_frame(Category = c('Team','Elementary School','Middle School','High School','Adult')) %>% 
       left_join(rd,by="Category") %>% 
       mutate(Category = factor(Category,levels=c('Team','Elementary School','Middle School','High School','Adult'))) %>% 
