@@ -86,9 +86,13 @@ shinyServer(function(input, output, session) {
                    jsonlite::fromJSON()
                  rsKeep = rs[unlist(lapply(rs$drop,nrow))>0,]
                  output = lapply(rsKeep$drop,function(x){
-                   x %>% 
+                   tmp = x %>% 
                      filter(round == 1) %>% 
                      select(-`_id`)
+                   if(!"cracked" %in% names(tmp)){
+                     tmp$cracked = NA
+                   }
+                   return(tmp)
                  }) %>% 
                    do.call(bind_rows,.) %>% 
                    bind_cols(rsKeep %>% select(-drop,-`_id`,-`__v`,-year)) %>% 
